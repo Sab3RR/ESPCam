@@ -1,6 +1,7 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <Servo.h>
+#include "definations.h"
 
 
 
@@ -30,7 +31,7 @@ int pos = 0;
 int pos2 = 0;
 
 void startCameraServer();
-void irdetector(camera_fb_t * fb);
+void irdetector(camera_fb_t * fb, std::vector<Dot> &detectedDots);
 
 void setup() {
   // uint32_t errors = 0;
@@ -156,7 +157,20 @@ void loop() {
   char* buf;
   fb = esp_camera_fb_get();
   buf = (char*)malloc(fb->len);
-  irdetector(fb);
+  std::vector<Dot> dots;
+  irdetector(fb, dots); 
+  
+  int averx = 0;
+  int avery = 0;
+  for (auto dot : dots){
+    averx += dot.x + dot.w;
+    avery += dot.y + dot.h;
+  }
+  if (dots.size() > 0){
+    averx = averx / dots.size() - fb->width / 2;
+    avery = (avery / dots.size() - fb->height / 2) * -1;
+  }
+  
   esp_camera_fb_return(fb);
   int64_t fr_end = millis();
   // Serial.printf("%ums (%.1ffps) cpuf = %u\n", (uint32_t)(fr_end - fr_start), 1000.0 / (uint32_t)(fr_end - fr_start), ESP.getCpuFreqMHz());
@@ -165,11 +179,11 @@ void loop() {
   char msgL[2] = {MSGL, 0};
 
   
-  ++pos;
-  if (pos > 180)
-    pos = 0;
-  msgR[1] = pos;
-  msgL[1] = pos;
+  // ++pos;
+  // if (pos > 180)
+  //   pos = 0;
+  msgR[1] = averx + 90;
+  msgL[1] = avery + 90;
   // ServoSerial.write(msg, 2);
   Serial.write(msgR, 2);
   Serial.write(msgL, 2);

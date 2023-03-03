@@ -21,6 +21,7 @@
 #include "fb_gfx.h"
 #include "fd_forward.h"
 #include "fr_forward.h"
+#include "definations.h"
 
 #include <vector>
 #include <list>
@@ -309,19 +310,10 @@ static esp_err_t capture_handler(httpd_req_t *req){
     return res;
 }
 
-extern "C" struct RGB {
-    uint8_t R;
-    uint8_t G;
-    uint8_t B;
-};
 
 
-struct Dot{
-    uint32_t x;
-    uint32_t y;
-    uint32_t w;
-    uint32_t h;
-};
+
+
 
 struct Map{
     uint8_t *map;
@@ -475,49 +467,8 @@ template<typename _Tp>
 
 
 
-struct Bitmap{
-    bool *bitmap;
-    const size_t W;
-    const size_t H;
-    const size_t L;
 
 
-    Bitmap(size_t w, size_t h, size_t s) : W(w), H(h), L(s){
-        // Serial.printf("in bitmap s = %ui \n", s);
-        bitmap = (bool*)ps_malloc(s * sizeof(bool));
-        if (!bitmap)
-        {
-            // Serial.printf("bad malloc  \n");
-            ESP.restart();
-        }
-        // Serial.printf("malloc bitmap \n");
-        for (int i = 0; i < s; ++i)
-            bitmap[i] = false;
-        // Serial.printf("init bitmap \n");
-    }
-    ~Bitmap(){
-        free(bitmap);
-    }
-    bool getCell(uint32_t x, uint32_t y){
-        return bitmap[(y * W) + x - 1];
-    }
-    void setCell(uint32_t x, uint32_t y, bool val){
-        bitmap[(y * W) + x - 1] = val;
-    }
-
-};
-
-struct Vector2u{
-    uint32_t x;
-    uint32_t y;
-
-//     static void* operator new(std::size_t count)
-//     {
-//         // std::cout << "custom new for size " << count << '\n';
-//         Serial.printf("ps_malloc \n");
-//         return ps_malloc(count);
-//     }
-};
 
 #define SEARCH_RADIUS 3
 
@@ -879,7 +830,7 @@ static void draw_crosses(dl_matrix3du_t *image_matrix, std::vector<Dot, new_allo
     // Serial.printf("cross in 5");
 }
 
-#define PIXEL_SHIFT 3
+#define PIXEL_SHIFT 10
 
 void dotsTrack(Map &map){
    
@@ -949,7 +900,9 @@ void dotsTrack(Map &map){
     }
 }
 
-void irdetector(camera_fb_t * fb){
+
+
+void irdetector(camera_fb_t * fb, std::vector<Dot> &detectedDots){
     const size_t lenth = fb->len;
     const size_t width = fb->width;
     const size_t height = fb->height;
@@ -971,6 +924,7 @@ void irdetector(camera_fb_t * fb){
     int x, y, w, h;
     for (auto dot : dots)
     {
+        
         x = dot.x;
         y = dot.y;
         w = dot.w;
@@ -993,6 +947,7 @@ void irdetector(camera_fb_t * fb){
         // fb_gfx_drawFastVLine(&fb, x - 1 + w / 2, y - 1 + h / 2 - 5, 10, color);
         // log_d("V line");
         // Serial.printf("cross in 4");
+        detectedDots.push_back(dot);
     }
     
     // draw_crosses(image_matrix, dots);
@@ -1045,7 +1000,7 @@ static esp_err_t stream_handler(httpd_req_t *req){
     }
 
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-
+    std::vector<Dot> vec;
     while(true){
         detected = false;
         face_id = 0;
@@ -1054,7 +1009,7 @@ static esp_err_t stream_handler(httpd_req_t *req){
             Serial.println("Camera capture failed");
             res = ESP_FAIL;
         } else {
-            irdetector(fb);
+            irdetector(fb, vec);
             fr_start = esp_timer_get_time();
             fr_ready = fr_start;
             fr_face = fr_start;
